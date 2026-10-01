@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — ZIYARAH DBG</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="index" data-title="Dashboard">
+
+<div id="app-shell"></div>
+<main id="view"></main>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/app.js"></script>
+
+<script>
+PAGE.register('index', async () => {
+  const m = DB.state;
+  const cash = Ledger.balance('1000');
+  const savings = Ledger.totalByPrefix('SAV-');
+  const loans = Ledger.totalByPrefix('LOAN-');
+  const units = Ledger.totalByPrefix('UNIT-');
+  const isEmpty = m.members.length === 0 && m.units.length === 0 && m.journalEntries.length === 0;
+
+  if (isEmpty) {
+    return UI.header('Dashboard', 'Welcome — start by adding your first data.') + `
+      <div style="background:linear-gradient(135deg,#062a26,#0f5248);color:#fff;border-radius:.85rem;padding:2rem;text-align:center;">
+        <h2 style="font-size:1.25rem;font-weight:800;margin:0;">Your platform is ready</h2>
+        <p style="opacity:.75;margin:.5rem 0 0;">No data yet — click Members to add your first member.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-top:1rem;">
+        <a href="members.html" class="kpi" style="text-decoration:none;">
+          <div class="kpi-label">Step 1</div>
+          <div class="kpi-value" style="font-size:1.1rem;">Add a member</div>
+          <div class="kpi-sub">Members save, borrow, contribute</div>
+        </a>
+      </div>`;
+  }
+
+  return UI.header('Dashboard', 'Overview of the group.') + `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
+      ${UI.kpi('Cash & Bank', UI.money(cash), 'Liquid funds')}
+      ${UI.kpi('Member Savings', UI.money(savings), m.members.length + ' members')}
+      ${UI.kpi('Loans Outstanding', UI.money(loans))}
+      ${UI.kpi('Business Capital', UI.money(units))}
+    </div>`;
+});
+</script>
+</body>
+</html>

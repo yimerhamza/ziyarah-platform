@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Members — ZIYARAH DBG</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="members" data-title="Members">
+
+<div id="app-shell"></div>
+<main id="view"></main>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/app.js"></script>
+
+<script>
+PAGE.register('members', async () => {
+  const list = MemberService.list();
+
+  const rows = list.length ? list.map(m => {
+    const sav = Ledger.balance(`SAV-${m.id}`);
+    const shr = Ledger.balance(`SHR-${m.id}`);
+    const loan = Ledger.balance(`LOAN-${m.id}`);
+    return `<tr style="border-bottom:1px solid #f1f5f4;">
+      <td style="padding:.65rem;">
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          ${UI.avatar(m.name)}
+          <div>
+            <div style="font-weight:600;">${m.name}</div>
+            <div style="font-size:.7rem;color:#94a3b8;">${m.memberNumber || ''}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:.65rem;color:#64748b;">${m.phone || '—'}</td>
+      <td style="padding:.65rem;text-align:right;font-family:monospace;">${UI.money(sav)}</td>
+      <td style="padding:.65rem;text-align:right;font-family:monospace;color:#c9a227;">${UI.money(shr)}</td>
+      <td style="padding:.65rem;text-align:right;font-family:monospace;">${UI.money(loan)}</td>
+      <td style="padding:.65rem;">${UI.pill(m.status)}</td>
+      <td style="padding:.65rem;text-align:right;">
+        <button onclick="editMember('${m.id}')" style="padding:.3rem .6rem;font-size:.7rem;background:#e8edec;border:none;border-radius:.4rem;cursor:pointer;">Edit</button>
+        <button onclick="deleteMember('${m.id}')" style="padding:.3rem .6rem;font-size:.7rem;background:#fee2e2;color:#991b1b;border:none;border-radius:.4rem;cursor:pointer;">Delete</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7">${UI.emptyState('◉', 'No members yet', 'Add your first member.', 'Add first member', 'addMember()')}</td></tr>`;
+
+  return UI.header('Members', 'Create, view, edit, and remove members.',
+    `<button onclick="addMember()" style="padding:.55rem 1rem;background:#0f5248;color:#fff;border:none;border-radius:.55rem;font-weight:600;cursor:pointer;">+ New member</button>`) + `
+    <div class="kpi">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="border-bottom:1px solid #e5ebe9;">
+          <th style="text-align:left;padding:.5rem;font-size:.7rem;text-transform:uppercase;color:#94a3b8;">Member</th>
+          <th style="text-align:left;padding:.5rem;font-size:.7rem;text-transform:uppercase;color:#94a3b8;">Phone</th>
+          <th style="text-align:right;padding:.5rem;font-size:.7rem;text-transform:uppercase;color:#94a3b8;">Savings</th>
+          <th style="text-align:right;padding:.5rem;font-size:.7rem;text-transform:uppercase;color:#94a3b8;">Shares</th>
+          <th style="text-align:right;padding:.5rem;font-size:.7rem;text-transform:uppercase;color:#94a3b8;">Loan</th>
+          <th style="text-align:left;padding:.5rem;font-size:.7rem;text-transform:uppercase;color:#94a3b8;">Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+});
+
+function addMember() {
+  UI.modal(`
+    <h2 style="font-size:1.1rem;font-weight:700;margin:0 0 1rem;">New member</h2>
+    <form onsubmit="event.preventDefault(); submitMember(this)">
+      <label style="font-size:.75rem;font-weight:600;">Full name *</label>
+      <input name="name" required style="width:100%;padding:.55rem;border:1px solid #d4dcda;border-radius:.5rem;margin:.25rem 0 1rem;">
+      <label style="font-size:.75rem;font-weight:600;">Phone</label>
+      <input name="phone" style="width:100%;padding:.55rem;border:1px solid #d4dcda;border-radius:.5rem;margin:.25rem 0 1rem;">
+      <label style="font-size:.75rem;font-weight:600;">Email</label>
+      <input name="email" type="email" style="width:100%;padding:.55rem;border:1px solid #d4dcda;border-radius:.5rem;margin:.25rem 0 1rem;">
+      <label style="font-size:.75rem;font-weight:600;">Role</label>
+      <select name="role" style="width:100%;padding:.55rem;border:1px solid #d4dcda;border-radius:.5rem;margin:.25rem 0 1rem;">
+        ${Object.entries(CONFIG.roles).map(([k, v]) => `<option value="${k}" ${k === 'MEMBER' ? 'selected' : ''}>${v}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" onclick="UI.closeModal()" style="padding:.55rem 1rem;background:#e8edec;border:none;border-radius:.55rem;cursor:pointer;">Cancel</button>
+        <button type="submit" style="padding:.55rem 1rem;background:#0f5248;color:#fff;border:none;border-radius:.55rem;font-weight:600;cursor:pointer;">+ Add member</button>
+      </div>
+    </form>
+  `);
+}
+
+const submitMember = guard(async (form) => {
+  await MemberService.create({
+    name: form.name.value,
+    phone: form.phone.value,
+    email: form.email.value,
+    role: form.role.value,
+  });
+  UI.closeModal();
+  UI.toast('Member created');
+  setTimeout(() => location.reload(), 500);
+});
+
+function editMember(id) {
+  const m = DB.state.members.find(x => x.id === id);
+  if (!m) return;
+  UI.modal(`
+    <h2 style="font-size:1.1rem;font-weight:700;margin:0 0 1rem;">Edit member</h2>
+    <form onsubmit="event.preventDefault(); submitEditMember(this, '${id}')">
+      <label style="font-size:.75rem;font-weight:600;">Full name *</label>
+      <input name="name" value="${m.name}" required style="width:100%;padding:.55rem;border:1px solid #d4dcda;border-radius:.5rem;margin:.25rem 0 1rem;">
+      <label style="font-size:.75rem;font-weight:600;">Phone</label>
+      <input name="phone" value="${m.phone || ''}" style="width:100%;padding:.55rem;border:1px solid #d4dcda;border-radius:.5rem;margin:.25rem 0 1rem;">
+      <label style="font-size:.75rem;font-weight:600;">Status</label>
+      <select name="status" style="width:100%;padding:.55rem;border:1px solid #d4dcda;border-radius:.5rem;margin:.25rem 0 1rem;">
+        ${CONFIG.statuses.member.map(s => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+      </select>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" onclick="UI.closeModal()" style="padding:.55rem 1rem;background:#e8edec;border:none;border-radius:.55rem;cursor:pointer;">Cancel</button>
+        <button type="submit" style="padding:.55rem 1rem;background:#0f5248;color:#fff;border:none;border-radius:.55rem;font-weight:600;cursor:pointer;">Save</button>
+      </div>
+    </form>
+  `);
+}
+
+const submitEditMember = guard(async (form, id) => {
+  await MemberService.update(id, {
+    name: form.name.value,
+    phone: form.phone.value,
+    status: form.status.value,
+  });
+  UI.closeModal();
+  UI.toast('Member updated');
+  setTimeout(() => location.reload(), 500);
+});
+
+function deleteMember(id) {
+  const m = DB.state.members.find(x => x.id === id);
+  if (!m) return;
+  UI.modal(`
+    <h2 style="font-size:1.1rem;font-weight:700;color:#991b1b;margin:0 0 .5rem;">Delete member?</h2>
+    <p style="margin:0 0 1rem;">Remove <strong>${m.name}</strong>?</p>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+      <button onclick="UI.closeModal()" style="padding:.55rem 1rem;background:#e8edec;border:none;border-radius:.55rem;cursor:pointer;">Cancel</button>
+      <button onclick="confirmDeleteMember('${id}')" style="padding:.55rem 1rem;background:#dc2626;color:#fff;border:none;border-radius:.55rem;font-weight:600;cursor:pointer;">Delete</button>
+    </div>
+  `);
+}
+
+const confirmDeleteMember = guard(async (id) => {
+  const sav = Ledger.balance(`SAV-${id}`);
+  const loan = Ledger.balance(`LOAN-${id}`);
+  const shr = Ledger.balance(`SHR-${id}`);
+  if (Math.abs(sav) > 0.01 || Math.abs(loan) > 0.01 || Math.abs(shr) > 0.01) {
+    throw new Error('Member has balances. Zero them out first.');
+  }
+  await MemberService.remove(id);
+  UI.closeModal();
+  UI.toast('Member deleted');
+  setTimeout(() => location.reload(), 500);
+});
+</script>
+</body>
+</html>
